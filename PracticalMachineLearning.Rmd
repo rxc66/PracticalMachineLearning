@@ -1,0 +1,72 @@
+---
+title: "Practical Machine Learning"
+output: html_document
+---
+
+The purpose of this exercise was to create a model to predict whether an exercise was being executed correctly based upon measurements collected from wearable devices. 
+
+##Getting and Cleaning the Data
+We first must download the data which can be found at this website: http://groupware.les.inf.puc-rio.br/har.
+
+
+```{r}
+# download files needed for testing and training
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+train_file <- "train.csv"
+test_file <- "test.csv"
+download.file(train_url,train_file,method="curl")
+download.file(test_url,test_file,method="curl")
+```
+
+There are a large number of NA values in the data, so when we read it in, we must ignore those values.
+
+```{r}
+#read in files
+test <- read.csv("test.csv", na.strings=c("NA","DIV/0!",""))
+train <- read.csv("train.csv", na.strings=c("NA","DIV/0!",""))
+```
+
+##Preparing the data for modelling
+
+There are a number of columns that contain no data.  We don't want the algorithm to have to sort through these so we will remove them first.  We also have identifying values (time of measurement, person being measured) that we will consider irrelevant for this exercise and will exclude those.  We will also create samples for the purposes of cross validation.
+
+```{r}
+library(caret)
+#remove columns that have all missing values
+train <- train[,colSums(is.na(train)) == 0]
+test <- test[,colSums(is.na(train)) == 0]
+
+#remove identifying columns not necessary for prediction
+train <- train[,-c(1:7)]
+train <- train[,-c(1:7)]
+
+#create test and train partitions for cross validation
+set.seed(5555)
+inTrain <- createDataPartition(y=train$classe, p=.6, list=FALSE)
+train_set <- train[inTrain,]
+test_set <- train[-inTrain,]
+```
+
+##Try two classification algorithms and compare
+
+First we will attempt a decision tree algorithm and then a random forest.  We find in the results that the Random Forest is the most predictive with an accuracy rate of 98.45% versus 48.27% on the decision tree.  So the expected out-of-sample error for the Random Forest model is 1.55%.
+
+##Decision Tree
+
+```{r}
+#try decision tree model
+model_dtree <- train(classe ~ ., data=train_set, method="rpart")
+prediction_dtree <- predict(model_dtree, test_set)
+confusionMatrix(prediction_dtree, test_set$classe)
+```
+
+##Random Forest
+```{r}
+#try random forest model
+model_rf <- train(classe ~ ., data=train_set, method="rf", importance=TRUE)
+prediction_rf <- predict(model_rf, test_set)
+confusionMatrix(prediction_rf, test_set$classe)
+```
+
+
